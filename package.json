@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@ontomorph/dtp-sdk": "^0.1.2",
+    "@supabase/supabase-js": "^2.110.8",
     "clsx": "^2.1.1",
     "firebase": "^12.16.0",
     "lucide-react": "^1.25.0",
