@@ -10,14 +10,16 @@ import {
   TrendingUp,
   Settings,
   HomeIcon,
+  Pill,
+  ShieldCheck,
 } from "lucide-react";
 
 export function Sidebar() {
   const pathname = usePathname();
 
-  // Don't render sidebar on the public landing page
-  if (pathname === "/") return null;
-
+  // Don't render sidebar on public pages: landing page and onboarding flow
+  const PUBLIC_PATHS = ["/", "/onboarding"];
+  if (PUBLIC_PATHS.includes(pathname)) return null;
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
@@ -25,6 +27,8 @@ export function Sidebar() {
     { href: "/phenotypes", label: "HPO Phenotypes", icon: Dna },
     { href: "/events", label: "Twin Health Events", icon: Pin },
     { href: "/patterns", label: "Pattern Spotting", icon: TrendingUp },
+    { href: "/prescriptions", label: "Prescriptions", icon: Pill },
+    { href: "/insights", label: "Safety Insights", icon: ShieldCheck },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 

@@ -81,3 +81,19 @@ export async function getDashboardDataAction(): Promise<DashboardDataResult> {
     return { success: false, needsOnboarding: false, error: err.message };
   }
 }
+
+/**
+ * Get the current user's health profile (for Settings page)
+ */
+export async function getHealthProfileAction(): Promise<HealthProfileActionResult> {
+  try {
+    const session = await getCurrentUserSession();
+    if (!session) {
+      return { success: false, error: "Not authenticated." };
+    }
+    const profile = await getHealthProfile(session.id);
+    return { success: true, profile };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
