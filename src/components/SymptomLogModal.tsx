@@ -104,7 +104,7 @@ export function SymptomLogModal({ isOpen, region, onClose, onSuccess }: SymptomL
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 transition p-2 rounded-full hover:bg-slate-100"
+          className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 transition p-2 rounded-full hover:bg-slate-100 z-10"
         >
           <X className="w-5 h-5" />
         </button>
