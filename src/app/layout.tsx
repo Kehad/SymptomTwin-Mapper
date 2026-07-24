@@ -19,6 +19,11 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "SymptomTwin Mapper - Human Digital Twin Organ Care & Symptom Mapping",
   description: "Interactive anatomical symptom mapping, digital twin organ impact simulation, and clinical health tracking.",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
