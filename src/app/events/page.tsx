@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRequireAuth } from "@/lib/use-auth";
 import { getSymptomHistoryAction } from "@/app/actions/symptoms";
 import { SymptomEvent } from "@/lib/symptom-store";
 import {
   Pin,
   Clock,
   Filter,
-  ShieldCheck,
   Heart,
   Brain,
   Wind,
@@ -16,16 +16,28 @@ import {
 } from "lucide-react";
 
 export default function EventsPage() {
+  const { user, loading } = useRequireAuth();
   const [events, setEvents] = useState<SymptomEvent[]>([]);
   const [selectedSystem, setSelectedSystem] = useState<string>("all");
 
   useEffect(() => {
     async function loadData() {
-      const res = await getSymptomHistoryAction();
-      setEvents(res.events);
+      if (user) {
+        const res = await getSymptomHistoryAction();
+        setEvents(res.events);
+      }
     }
     loadData();
-  }, []);
+  }, [user]);
+
+  if (loading || !user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-500 gap-3">
+        <Activity className="w-8 h-8 text-cyan-600 animate-spin" />
+        <p className="text-xs font-mono font-semibold">Verifying Clinical Security Guard...</p>
+      </div>
+    );
+  }
 
   const filteredEvents =
     selectedSystem === "all" ? events : events.filter((ev) => ev.system === selectedSystem);
@@ -129,7 +141,9 @@ export default function EventsPage() {
           })}
 
           {filteredEvents.length === 0 && (
-            <p className="text-xs text-slate-500 italic text-center py-8">No pinned events match the selected system filter.</p>
+            <p className="text-xs text-slate-500 italic text-center py-8">
+              No pinned events match the selected system filter.
+            </p>
           )}
         </div>
       </div>

@@ -14,6 +14,10 @@ import {
 export function Sidebar() {
   const pathname = usePathname();
 
+  // Don't render sidebar on the public landing page
+  if (pathname === "/") return null;
+
+
   const navItems = [
     { href: "/", label: "Body Mapping", icon: MapPin },
     { href: "/phenotypes", label: "HPO Phenotypes", icon: Dna },

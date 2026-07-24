@@ -1,4 +1,5 @@
 // src/lib/symptom-store.ts
+import { supabase } from "./supabase";
 
 export interface HpoPhenotype {
   hpoCode: string; // e.g., "HP:0001658"
@@ -33,97 +34,53 @@ export interface PatternCluster {
   flaggedToTwin: boolean;
 }
 
-// Pre-seeded historical symptom events for pattern spotting demo
-const symptomDb: SymptomEvent[] = [
-  {
-    id: "sym_001",
-    userId: "usr_smith_01",
-    bodyRegion: "chest",
-    regionName: "Chest / Heart Region",
-    system: "cardiovascular",
-    symptomName: "Chest tightness during exertion",
-    severity: 8,
-    hpo: {
-      hpoCode: "HP:0001658",
-      hpoName: "Angina Pectoris / Chest Pain",
-      snomedCode: "29857009",
-      definition: "Discomfort or painful pressure in the substernal chest region.",
-    },
-    notes: "Felt acute tightness after walking up stairs.",
-    timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "sym_002",
-    userId: "usr_smith_01",
-    bodyRegion: "chest",
-    regionName: "Chest / Heart Region",
-    system: "cardiovascular",
-    symptomName: "Heart palpitations & rapid beat",
-    severity: 7,
-    hpo: {
-      hpoCode: "HP:0001962",
-      hpoName: "Palpitations",
-      snomedCode: "80313002",
-      definition: "Unpleasant awareness of forceful, rapid, or irregular beating of the heart.",
-    },
-    notes: "Occurred during evening rest.",
-    timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "sym_003",
-    userId: "usr_smith_01",
-    bodyRegion: "head",
-    regionName: "Head / Brain Region",
-    system: "nervous",
-    symptomName: "Frontal throbbing headache",
-    severity: 5,
-    hpo: {
-      hpoCode: "HP:0002315",
-      hpoName: "Headache",
-      snomedCode: "25064002",
-      definition: "Cephalea discomfort localized to the cranial vault.",
-    },
-    notes: "Mild sensitivity to light.",
-    timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "sym_004",
-    userId: "usr_smith_01",
-    bodyRegion: "joints",
-    regionName: "Joints / Knee & Wrist",
-    system: "musculoskeletal",
-    symptomName: "Morning joint stiffness",
-    severity: 4,
-    hpo: {
-      hpoCode: "HP:0002829",
-      hpoName: "Arthralgia",
-      snomedCode: "57676002",
-      definition: "Joint pain or periarticular stiffness.",
-    },
-    notes: "Eased after warm shower.",
-    timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-];
+// Local runtime store for fast access
+const runtimeSymptomEvents: SymptomEvent[] = [];
 
 /**
- * Log a new symptom event
+ * Log a new symptom event to Supabase
  */
 export async function addSymptomEvent(event: Omit<SymptomEvent, "id">): Promise<SymptomEvent> {
+  const eventId = `sym_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
   const newEvent: SymptomEvent = {
     ...event,
-    id: `sym_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    id: eventId,
   };
 
-  symptomDb.unshift(newEvent);
+  runtimeSymptomEvents.unshift(newEvent);
+
+  try {
+    await supabase.from("symptom_events").insert([newEvent]);
+  } catch (e) {
+    console.warn("Supabase addSymptomEvent fallback:", e);
+  }
+
   return newEvent;
 }
 
 /**
- * Get all symptom events for user
+ * Get symptom events for user from Supabase
  */
 export async function getSymptomEvents(userId?: string): Promise<SymptomEvent[]> {
-  if (!userId) return symptomDb;
-  return symptomDb.filter((ev) => ev.userId === userId || ev.userId === "usr_smith_01");
+  try {
+    let query = supabase.from("symptom_events").select("*");
+    if (userId) {
+      query = query.eq("userId", userId);
+    }
+    const { data } = await query.order("timestamp", { ascending: false });
+
+    if (data && data.length > 0) {
+      return data as SymptomEvent[];
+    }
+  } catch (e) {
+    console.warn("Supabase getSymptomEvents error:", e);
+  }
+
+  // Fallback to runtime store if user filtered or Supabase offline
+  if (userId) {
+    return runtimeSymptomEvents.filter((ev) => ev.userId === userId);
+  }
+  return runtimeSymptomEvents;
 }
 
 /**
@@ -150,7 +107,7 @@ export async function detectSymptomClusters(userId?: string): Promise<PatternClu
       const hpoCodes = Array.from(new Set(sysEvents.map((ev) => ev.hpo.hpoCode)));
       const isCritical = sysEvents.length >= 2 && avgSeverity >= 7;
 
-      clusters.push({
+      const clusterObj: PatternCluster = {
         id: `clust_${system}_${Date.now()}`,
         system,
         regionName: sysEvents[0].regionName,
@@ -160,10 +117,19 @@ export async function detectSymptomClusters(userId?: string): Promise<PatternClu
         clusterSeverity: isCritical ? "critical" : avgSeverity >= 5 ? "moderate" : "mild",
         hpoCodes,
         recommendation: isCritical
-          ? `High-priority ${system} cluster detected (${sysEvents.length} events, avg severity ${avgSeverity}/10). Recommended immediate cardiology/clinical evaluation.`
+          ? `High-priority ${system} cluster detected (${sysEvents.length} events, avg severity ${avgSeverity}/10). Recommended immediate clinical evaluation.`
           : `Recurring ${system} symptom activity observed over past 7 days.`,
         flaggedToTwin: isCritical,
-      });
+      };
+
+      clusters.push(clusterObj);
+
+      // Save cluster to Supabase
+      try {
+        supabase.from("symptom_clusters").insert([clusterObj]).then(() => {});
+      } catch (e) {
+        // Silent fallback
+      }
     }
   });
 

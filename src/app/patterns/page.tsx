@@ -1,28 +1,39 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRequireAuth } from "@/lib/use-auth";
 import { getSymptomHistoryAction } from "@/app/actions/symptoms";
 import { PatternCluster } from "@/lib/symptom-store";
 import {
   TrendingUp,
   ShieldAlert,
-  AlertTriangle,
-  CheckCircle2,
-  Activity,
   Clock,
+  Activity,
   Zap,
 } from "lucide-react";
 
 export default function PatternSpottingPage() {
+  const { user, loading } = useRequireAuth();
   const [clusters, setClusters] = useState<PatternCluster[]>([]);
 
   useEffect(() => {
     async function loadData() {
-      const res = await getSymptomHistoryAction();
-      setClusters(res.clusters);
+      if (user) {
+        const res = await getSymptomHistoryAction();
+        setClusters(res.clusters);
+      }
     }
     loadData();
-  }, []);
+  }, [user]);
+
+  if (loading || !user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-500 gap-3">
+        <Activity className="w-8 h-8 text-cyan-600 animate-spin" />
+        <p className="text-xs font-mono font-semibold">Verifying Clinical Security Guard...</p>
+      </div>
+    );
+  }
 
   const criticalClusters = clusters.filter((c) => c.clusterSeverity === "critical");
 

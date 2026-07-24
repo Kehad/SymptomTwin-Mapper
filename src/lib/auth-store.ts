@@ -1,4 +1,5 @@
 // src/lib/auth-store.ts
+import { supabase } from "./supabase";
 import crypto from "crypto";
 
 export interface UserMedication {
@@ -17,7 +18,7 @@ export interface UserProfile {
   createdAt: string;
 }
 
-interface StoredUser extends UserProfile {
+interface StoredUserDoc extends UserProfile {
   passwordHash: string;
   salt: string;
 }
@@ -33,55 +34,15 @@ function generateSalt(): string {
   return crypto.randomBytes(16).toString("hex");
 }
 
-// In-memory persistent database store (pre-seeded with demo accounts)
-const userDb: Map<string, StoredUser> = new Map();
+// In-memory runtime cache for server-side fast retrieval
+const localUserCache: Map<string, StoredUserDoc> = new Map();
 
-function seedInitialUsers() {
-  if (userDb.size > 0) return;
-
-  // Demo User 1: Dr. Sarah Smith
-  const salt1 = generateSalt();
-  const drSmith: StoredUser = {
-    id: "usr_smith_01",
-    username: "dr_smith",
-    fullName: "Dr. Sarah Smith",
-    role: "doctor",
-    passwordHash: hashPassword("password123", salt1),
-    salt: salt1,
-    grantToken: "dtp_grant_dr_smith_cardio_twin_9921",
-    medications: [
-      { name: "Atorvastatin", rxNormId: 83367, system: "cardiovascular" },
-      { name: "Clopidogrel", rxNormId: 32968, system: "cardiovascular" },
-    ],
-    createdAt: new Date().toISOString(),
-  };
-
-  // Demo User 2: Jane Doe (Patient)
-  const salt2 = generateSalt();
-  const patientJane: StoredUser = {
-    id: "usr_jane_02",
-    username: "patient_jane",
-    fullName: "Jane Doe (Twin #7842)",
-    role: "patient",
-    passwordHash: hashPassword("password123", salt2),
-    salt: salt2,
-    grantToken: "dtp_grant_patient_jane_twin_7842",
-    medications: [
-      { name: "Metoprolol", rxNormId: 918, system: "cardiovascular" },
-      { name: "Aspirin", rxNormId: 1191, system: "cardiovascular" },
-    ],
-    createdAt: new Date().toISOString(),
-  };
-
-  userDb.set(drSmith.username.toLowerCase(), drSmith);
-  userDb.set(patientJane.username.toLowerCase(), patientJane);
+function toUserKey(username: string): string {
+  return username.trim().toLowerCase();
 }
 
-// Initialize seed
-seedInitialUsers();
-
 /**
- * Register a new user with username, password, full name, role, and optional grant token
+ * Register a new user in Supabase
  */
 export async function createUser(data: {
   username: string;
@@ -90,22 +51,41 @@ export async function createUser(data: {
   role?: "doctor" | "patient" | "researcher";
   grantToken?: string;
 }): Promise<UserProfile> {
-  seedInitialUsers();
+  const cleanUsername = toUserKey(data.username);
 
-  const cleanUsername = data.username.trim().toLowerCase();
-  if (userDb.has(cleanUsername)) {
-    throw new Error("Username already exists. Please choose another username.");
+  if (cleanUsername.length < 3) {
+    throw new Error("Username must be at least 3 characters long.");
   }
 
   if (data.password.length < 4) {
     throw new Error("Password must be at least 4 characters long.");
   }
 
+  // Check if username exists in local cache or Supabase table
+  if (localUserCache.has(cleanUsername)) {
+    throw new Error("Username already registered. Please sign in or choose another username.");
+  }
+
+  try {
+    const { data: existingUser } = await supabase
+      .from("users")
+      .select("username")
+      .eq("username", cleanUsername)
+      .maybeSingle();
+
+    if (existingUser) {
+      throw new Error("Username already registered. Please sign in or choose another username.");
+    }
+  } catch (err: any) {
+    if (err.message?.includes("already registered")) throw err;
+    console.warn("Supabase query fallback mode:", err);
+  }
+
   const salt = generateSalt();
   const passwordHash = hashPassword(data.password, salt);
   const userId = `usr_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
-  const newUser: StoredUser = {
+  const newStoredUser: StoredUserDoc = {
     id: userId,
     username: data.username.trim(),
     fullName: data.fullName.trim() || data.username.trim(),
@@ -119,21 +99,44 @@ export async function createUser(data: {
     createdAt: new Date().toISOString(),
   };
 
-  userDb.set(cleanUsername, newUser);
+  // Save to local cache
+  localUserCache.set(cleanUsername, newStoredUser);
 
-  // Return public profile (strip password and salt)
-  const { passwordHash: _, salt: __, ...userProfile } = newUser;
+  // Save to Supabase 'users' table
+  try {
+    await supabase.from("users").insert([newStoredUser]);
+  } catch (e) {
+    console.warn("Saved to auth store (Supabase offline mode):", e);
+  }
+
+  const { passwordHash: _, salt: __, ...userProfile } = newStoredUser;
   return userProfile;
 }
 
 /**
- * Validate credentials for sign in
+ * Validate credentials for sign in from Supabase
  */
 export async function verifyCredentials(username: string, password: string): Promise<UserProfile | null> {
-  seedInitialUsers();
+  const cleanUsername = toUserKey(username);
+  let storedUser: StoredUserDoc | null = localUserCache.get(cleanUsername) || null;
 
-  const cleanUsername = username.trim().toLowerCase();
-  const storedUser = userDb.get(cleanUsername);
+  // Attempt to fetch from Supabase if not in local cache
+  if (!storedUser) {
+    try {
+      const { data } = await supabase
+        .from("users")
+        .select("*")
+        .eq("username", cleanUsername)
+        .maybeSingle();
+
+      if (data) {
+        storedUser = data as StoredUserDoc;
+        localUserCache.set(cleanUsername, storedUser);
+      }
+    } catch (e) {
+      console.warn("Supabase fetch error:", e);
+    }
+  }
 
   if (!storedUser) {
     return null;
@@ -149,33 +152,58 @@ export async function verifyCredentials(username: string, password: string): Pro
 }
 
 /**
- * Get user profile by ID
+ * Get user profile by ID from Supabase
  */
 export async function getUserById(userId: string): Promise<UserProfile | null> {
-  seedInitialUsers();
-
-  for (const user of userDb.values()) {
+  // Check local cache
+  for (const user of localUserCache.values()) {
     if (user.id === userId) {
       const { passwordHash: _, salt: __, ...userProfile } = user;
       return userProfile;
     }
   }
+
+  // Query Supabase
+  try {
+    const { data } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (data) {
+      const storedUser = data as StoredUserDoc;
+      localUserCache.set(toUserKey(storedUser.username), storedUser);
+      const { passwordHash: _, salt: __, ...userProfile } = storedUser;
+      return userProfile;
+    }
+  } catch (e) {
+    console.warn("Supabase query error:", e);
+  }
+
   return null;
 }
 
 /**
- * Update active medications for a user
+ * Update active medications for a user in Supabase
  */
 export async function updateUserMedications(
   userId: string,
   medications: UserMedication[]
 ): Promise<UserProfile | null> {
-  seedInitialUsers();
-
-  for (const [key, user] of userDb.entries()) {
+  for (const [key, user] of localUserCache.entries()) {
     if (user.id === userId) {
       user.medications = medications;
-      userDb.set(key, user);
+      localUserCache.set(key, user);
+
+      try {
+        await supabase
+          .from("users")
+          .update({ medications })
+          .eq("id", userId);
+      } catch (e) {
+        console.warn("Supabase update error:", e);
+      }
 
       const { passwordHash: _, salt: __, ...userProfile } = user;
       return userProfile;
