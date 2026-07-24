@@ -10,7 +10,6 @@ import { SettingsHeader } from "./SettingsHeader";
 import { SettingsProfileTab } from "./SettingsProfileTab";
 import { SettingsTwinTab } from "./SettingsTwinTab";
 import { SettingsMedicationsTab } from "./SettingsMedicationsTab";
-import { SettingsApiTab } from "./SettingsApiTab";
 
 export function SettingsComponent() {
   const { user, loading } = useRequireAuth();
@@ -100,7 +99,6 @@ export function SettingsComponent() {
     { id: "profile", label: "Health Profile", icon: User },
     { id: "twin", label: "Digital Twin", icon: Dna },
     { id: "medications", label: "Medications & Interactions", icon: Pill },
-    { id: "api", label: "API & Grant Keys", icon: Key },
   ] as const;
 
   return (
@@ -163,9 +161,7 @@ export function SettingsComponent() {
         />
       )}
 
-      {activeTab === "api" && (
-        <SettingsApiTab grantToken={user.grantToken} />
-      )}
+      
     </div>
   );
 }

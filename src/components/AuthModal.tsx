@@ -192,7 +192,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
             className="w-full mt-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {isLoading ? (
-              <span>Authenticating with Firebase...</span>
+              <span>Authenticating</span>
             ) : tab === "signin" ? (
               <>
                 <LogIn className="w-4 h-4" /> Sign In to SymptomTwin Portal

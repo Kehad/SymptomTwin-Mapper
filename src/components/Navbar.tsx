@@ -64,7 +64,7 @@ function NavbarContent() {
         }}
       />
 
-      <header className="sticky w-full top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 md:px-8 py-3.5 flex items-end justify-end gap-4 shadow-sm">
+      <header className="hidden md:flex sticky w-full top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 md:px-8 py-3.5 items-center justify-end gap-4 shadow-sm">
         {/* Brand Logo */}
         
 
@@ -124,7 +124,7 @@ function NavbarContent() {
 
 export function Navbar() {
   return (
-    <Suspense fallback={<header className="sticky top-0 z-40 bg-white/90 border-b border-slate-200/80 px-4 md:px-8 py-3.5 h-16" />}>
+    <Suspense fallback={<header className="hidden md:flex sticky top-0 z-40 bg-white/90 border-b border-slate-200/80 px-4 md:px-8 py-3.5 h-16" />}>
       <NavbarContent />
     </Suspense>
   );

@@ -17,8 +17,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PharmaTwin Guard - Human Digital Twin Organ Care",
-  description: "Digital twin organ impact simulation and clinical drug safety screening.",
+  title: "SymptomTwin Mapper - Human Digital Twin Organ Care & Symptom Mapping",
+  description: "Interactive anatomical symptom mapping, digital twin organ impact simulation, and clinical health tracking.",
 };
 
 export default function RootLayout({
@@ -33,7 +33,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex bg-slate-50 text-slate-900 selection:bg-cyan-500/20 selection:text-cyan-900">
         <Sidebar />
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0">
           <Navbar />
           <main className="flex-1 p-3 md:p-4">{children}</main>
         </div>
