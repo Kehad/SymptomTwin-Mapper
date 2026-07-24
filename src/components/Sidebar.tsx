@@ -9,6 +9,7 @@ import {
   Pin,
   TrendingUp,
   Settings,
+  HomeIcon,
 } from "lucide-react";
 
 export function Sidebar() {
@@ -19,7 +20,8 @@ export function Sidebar() {
 
 
   const navItems = [
-    { href: "/", label: "Body Mapping", icon: MapPin },
+    { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
+    { href: "/body-mapping", label: "Body Mapping", icon: MapPin },
     { href: "/phenotypes", label: "HPO Phenotypes", icon: Dna },
     { href: "/events", label: "Twin Health Events", icon: Pin },
     { href: "/patterns", label: "Pattern Spotting", icon: TrendingUp },
